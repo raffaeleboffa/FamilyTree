@@ -1,24 +1,85 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Family Tree</title><link rel="stylesheet" href="style.css"></head><body>
-<aside id="side"><h1>🌳<span>Genealogia</span></h1>
-<button data-act="trees"><b>🗂️</b><span>Alberi</span></button>
-<button data-act="stats"><b>📊</b><span>Statistiche</span></button>
-<button data-act="check"><b>🔍</b><span>Controllo relazioni</span></button>
-<button data-act="settings"><b>⚙️</b><span>Impostazioni</span></button>
-<button data-act="io"><b>💾</b><span>Importa / Esporta</span></button>
-<button data-act="pdf"><b>📄</b><span>Esporta PDF</span></button>
-<button data-act="theme"><b>🌓</b><span>Tema chiaro/scuro</span></button></aside>
-<main><header id="top">
-<button class="pri" data-act="add">＋ Persona</button>
-<button data-act="undo" title="Annulla (Ctrl+Z)">↶</button><button data-act="redo" title="Ripristina (Ctrl+Y)">↷</button>
-<strong id="tn"></strong><span class="sp"></span>
-<button data-act="zin" title="Zoom avanti">＋</button><button data-act="zout" title="Zoom indietro">－</button><button data-act="fit">Adatta</button>
-<select id="vm" title="Parte di famiglia da visualizzare"><option value="all">Tutta la famiglia</option><option value="desc">Discendenti del riferimento</option><option value="anc">Antenati del riferimento</option></select>
-<div class="sw"><input id="q" placeholder="Cerca persona…" autocomplete="off"><div id="sr" hidden></div></div>
+<html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#4f6bed">
+<title>Alberi Genealogici</title><link rel="stylesheet" href="style.css"></head><body>
+<!-- Set di icone uniforme (stile a tratto), usato con <use href="#i-nome"> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 22v-6"/><path d="M12 16c-3.6 0-6.5-2.7-6.5-6.2a6.5 6.5 0 0 1 13 0c0 3.5-2.9 6.2-6.5 6.2z"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.500-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M4 18v2h16v-2"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+<symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+<symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+<symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.700 0l3-3a4 4 0 0 0-5.700-5.700l-1 1"/><path d="M14 10a4 4 0 0 0-5.700 0l-3 3A4 4 0 0 0 11 18.700l1-1"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.700 5.600 6.100.9-4.400 4.300 1 6.100L12 17l-5.400 2.900 1-6.100L3.200 9.500l6.100-.9z"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.400-7-10a4 4 0 0 1 7-2.500A4 4 0 0 1 19 10c0 5.600-7 10-7 10z"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></symbol>
+</defs></svg>
+
+<aside id="side">
+  <div class="brand"><span class="lg"><svg class="i"><use href="#i-tree"/></svg></span>Genealogia</div>
+  <div class="gt">Albero</div>
+  <button data-act="trees"><svg class="i"><use href="#i-folder"/></svg>Alberi</button>
+  <button data-act="stats"><svg class="i"><use href="#i-chart"/></svg>Statistiche</button>
+  <button data-act="check"><svg class="i"><use href="#i-check"/></svg>Controllo relazioni</button>
+  <div class="gt">Strumenti</div>
+  <button data-act="settings"><svg class="i"><use href="#i-sliders"/></svg>Impostazioni</button>
+  <button data-act="io"><svg class="i"><use href="#i-download"/></svg>Importa / Esporta</button>
+  <button data-act="pdf"><svg class="i"><use href="#i-file"/></svg>Esporta PDF</button>
+  <span class="sp"></span>
+  <button data-act="theme"><svg class="i"><use href="#i-theme"/></svg>Tema chiaro / scuro</button>
+</aside>
+
+<main>
+<header id="top">
+  <button class="pri dk" data-act="add"><svg class="i"><use href="#i-plus"/></svg>Persona</button>
+  <div class="grp">
+    <button class="ib" data-act="undo" title="Annulla (Ctrl+Z)" aria-label="Annulla"><svg class="i"><use href="#i-undo"/></svg></button>
+    <button class="ib" data-act="redo" title="Ripristina (Ctrl+Y)" aria-label="Ripristina"><svg class="i"><use href="#i-redo"/></svg></button>
+  </div>
+  <strong id="tn"></strong><span class="sp dk"></span>
+  <select id="vm" aria-label="Parte di famiglia da visualizzare"><option value="all">Tutta la famiglia</option><option value="desc">Discendenti del riferimento</option><option value="anc">Antenati del riferimento</option></select>
+  <div class="sw"><svg class="i si"><use href="#i-search"/></svg><input id="q" placeholder="Cerca persona…" autocomplete="off" aria-label="Cerca persona"><div id="sr" hidden></div></div>
 </header>
-<div id="stage"><svg id="svg"><g id="vp"></g></svg>
-<div id="empty" hidden><p>L’albero è vuoto.</p><button class="pri" data-act="add">Aggiungi la prima persona</button><button data-act="demo">Carica un esempio</button></div>
-<aside id="det" hidden></aside></div></main>
-<dialog id="dlg"></dialog><div id="toast"></div>
+<div id="stage">
+  <svg id="svg" role="img" aria-label="Albero genealogico"><g id="vp"></g></svg>
+  <div id="empty" hidden>
+    <span class="eic"><svg class="i"><use href="#i-tree"/></svg></span>
+    <h2>Inizia il tuo albero</h2><p class="mu">Aggiungi la prima persona, poi costruisci genitori, figli e partner dalla sua scheda.</p>
+    <div class="er"><button class="pri" data-act="add"><svg class="i"><use href="#i-plus"/></svg>Aggiungi la prima persona</button><button data-act="demo">Carica un esempio</button></div>
+  </div>
+  <aside id="det" hidden></aside>
+  <div id="zc">
+    <button class="ib" data-act="zin" title="Zoom avanti" aria-label="Zoom avanti"><svg class="i"><use href="#i-plus"/></svg></button>
+    <button class="ib" data-act="zout" title="Zoom indietro" aria-label="Zoom indietro"><svg class="i"><use href="#i-minus"/></svg></button>
+    <button class="ib" data-act="fit" title="Adatta allo schermo" aria-label="Adatta allo schermo"><svg class="i"><use href="#i-fit"/></svg></button>
+  </div>
+</div>
+</main>
+
+<nav id="tabs" aria-label="Navigazione">
+  <button data-act="trees"><svg class="i"><use href="#i-folder"/></svg>Alberi</button>
+  <button data-act="stats"><svg class="i"><use href="#i-chart"/></svg>Statistiche</button>
+  <button class="fab" data-act="add" aria-label="Aggiungi persona"><svg class="i"><use href="#i-plus"/></svg></button>
+  <button data-act="settings"><svg class="i"><use href="#i-sliders"/></svg>Impostazioni</button>
+  <button data-act="more"><svg class="i"><use href="#i-menu"/></svg>Altro</button>
+</nav>
+<dialog id="dlg"></dialog><div id="toast" role="status"></div>
 <script src="script.js"></script></body></html>

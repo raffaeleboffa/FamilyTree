@@ -4,6 +4,7 @@ const $ = (s, e = document) => e.querySelector(s);
 const uid = () => 'p' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2800) };
+const ic = n => `<svg class="i"><use href="#i-${n}"/></svg>`;
 const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 const KEYS = ['nome', 'secondo', 'cognome', 'nick', 'sesso', 'bd', 'bm', 'by', 'luogoN', 'dd', 'dm', 'dy', 'luogoM', 'foto', 'bio', 'prof', 'naz', 'altro'];
 const blank = () => Object.fromEntries(KEYS.map(k => [k, '']));
@@ -180,7 +181,7 @@ function colors(gen, s) {
   return { bg, fg: (s.genc ? dark : lum(bg) < .5) ? '#f1f4fa' : '#1b2333' };
 }
 function draw(Lr, s, ex) {
-  const { pos, g, A, B, Y, v, nodes, fams } = Lr, rels = T().rels, dash = { solid: '', dashed: '6 4', dotted: '2 4' }[s.ls];
+  const ac = s.theme === 'dark' ? '#8aa0ff' : '#4f6bed', { pos, g, A, B, Y, v, nodes, fams } = Lr, rels = T().rels, dash = { solid: '', dashed: '6 4', dotted: '2 4' }[s.ls];
   const pt = (a, b) => v ? `${a} ${b}` : `${b} ${a}`, cA = i => pos[i] + A / 2, bT = i => Y[g[i]];
   const path = (d, c, da) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="${s.lw}"${da ? ` stroke-dasharray="${da}"` : ''} stroke-linejoin="round"/>`;
   let o = '';
@@ -199,7 +200,8 @@ function draw(Lr, s, ex) {
     const pl = s.places && [p.luogoN, p.luogoM].filter(Boolean).join(' → '); if (pl) lines.push([pl, 400, s.fs - 3]);
     const mx = Math.max(4, Math.floor((s.cw - off - pad) / (s.fs * .55))), lh = s.fs * 1.35, t0 = s.ch / 2 - lines.length * lh / 2 + s.fs * .95;
     o += `<g class="n" data-id="${esc(id)}" transform="translate(${x} ${y})"><title>${esc(fullname(p))}</title>`;
-    o += `<rect width="${s.cw}" height="${s.ch}" rx="${s.rad}" fill="${bg}" stroke="${isSel ? '#3b82f6' : s.bd}" stroke-width="${isSel ? 3.5 : 1.5}"/>`;
+    if (isSel) o += `<rect x="-5" y="-5" width="${s.cw + 10}" height="${s.ch + 10}" rx="${s.rad + 4}" fill="none" stroke="${ac}" stroke-opacity=".3" stroke-width="5"/>`;
+    o += `<rect width="${s.cw}" height="${s.ch}" rx="${s.rad}" fill="${bg}" stroke="${isSel ? ac : s.bd}" stroke-width="${isSel ? 3 : 1.5}"/>`;
     if (s.photos) {
       const cx = pad + s.av / 2, cy = s.ch / 2, r = s.av / 2;
       if (p.foto) { n++; o += `<clipPath id="c${n}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath><image href="${esc(p.foto)}" x="${pad}" y="${cy - r}" width="${s.av}" height="${s.av}" clip-path="url(#c${n})" preserveAspectRatio="xMidYMid slice"/>` }
@@ -207,7 +209,7 @@ function draw(Lr, s, ex) {
     }
     lines.forEach(([tx, w, fs], i) => { const t = tx.length > mx ? tx.slice(0, mx - 1) + '…' : tx; o += `<text x="${off}" y="${t0 + i * lh}" font-size="${fs}" font-weight="${w}" fill="${fg}" font-family="${s.font}">${esc(t)}</text>` });
     if (id === ref) o += `<text x="${s.cw - 14}" y="14" font-size="12" fill="#e0a800">★</text>`;
-    if (collapsed.has(id) && (KIDS.get(id) || []).length) o += `<circle cx="${s.cw / 2}" cy="${s.ch}" r="10" fill="#3b82f6"/><text x="${s.cw / 2}" y="${s.ch + 4}" text-anchor="middle" font-size="11" fill="#fff">+${KIDS.get(id).length}</text>`;
+    if (collapsed.has(id) && (KIDS.get(id) || []).length) o += `<circle cx="${s.cw / 2}" cy="${s.ch}" r="10" fill="${ac}"/><text x="${s.cw / 2}" y="${s.ch + 4}" text-anchor="middle" font-size="11" fill="#fff">+${KIDS.get(id).length}</text>`;
     o += '</g>';
   }
   return o;
@@ -225,14 +227,25 @@ function zoomAt(cx, cy, f) { const r = svg.getBoundingClientRect(), x = cx - r.l
 function fit() { if (!L || !L.n) return; const r = svg.getBoundingClientRect(), b = L.box, k = Math.min((r.width - 60) / b.w, (r.height - 60) / b.h, 1.2); V.k = k; V.x = (r.width - b.w * k) / 2 - b.x * k; V.y = (r.height - b.h * k) / 2 - b.y * k; applyV() }
 function center(id) { const n = L.map[id]; if (!n) return; const r = svg.getBoundingClientRect(); V.x = r.width / 2 - (n.x + S.settings.cw / 2) * V.k; V.y = r.height / 2 - (n.y + S.settings.ch / 2) * V.k; applyV() }
 svg.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1 / 1.12) }, { passive: false });
-let drag = null;
-svg.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, vx: V.x, vy: V.y, mv: 0, t: e.target.closest('.n') } });
-addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.mv = 1; if (drag.mv) { V.x = drag.vx + dx; V.y = drag.vy + dy; applyV() } });
-addEventListener('pointerup', () => { if (!drag) return; if (!drag.mv) { sel = drag.t ? drag.t.dataset.id : null; render() } drag = null });
+/* Un dito/mouse: sposta; due dita: pinch-zoom. Un tocco breve su una scheda la seleziona. */
+const ptr = new Map(); let drag = null, pin = null;
+svg.addEventListener('pointerdown', e => {
+  ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptr.size === 2) { const [a, b] = [...ptr.values()]; pin = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, k: V.k }; drag = null; return }
+  drag = { x: e.clientX, y: e.clientY, vx: V.x, vy: V.y, mv: 0, t: e.target.closest('.n') };
+});
+addEventListener('pointermove', e => {
+  if (!ptr.has(e.pointerId)) return; ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pin && ptr.size >= 2) { const [a, b] = [...ptr.values()]; zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, pin.k * (Math.hypot(a.x - b.x, a.y - b.y) / pin.d) / V.k); return }
+  if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 6) drag.mv = 1; if (drag.mv) { V.x = drag.vx + dx; V.y = drag.vy + dy; applyV() }
+});
+const pend = e => { ptr.delete(e.pointerId); if (ptr.size < 2) pin = null; if (!drag) return; if (!drag.mv && e.type === 'pointerup') { sel = drag.t ? drag.t.dataset.id : null; render() } drag = null };
+addEventListener('pointerup', pend); addEventListener('pointercancel', pend);
 svg.addEventListener('dblclick', e => { const n = e.target.closest('.n'); if (n) { const id = n.dataset.id; collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id); render() } });
 
 /* ===== DIALOGHI ===== */
-function modal(t, b, f = '') { const d = $('#dlg'); d.innerHTML = `<div class="mh"><h2>${t}</h2><button data-act="close">✕</button></div><div class="mb">${b}</div><div class="mf">${f}</div>`; if (!d.open) d.showModal() }
+function modal(t, b, f = '') { const d = $('#dlg'); d.innerHTML = `<div class="mh"><h2>${t}</h2><button class="ib" data-act="close" aria-label="Chiudi">${ic('x')}</button></div><div class="mb">${b}</div><div class="mf">${f}</div>`; if (!d.open) d.showModal() }
 const kindField = t => [{ n: 'k', l: 'Tipo di relazione', o: t === 'pc' ? [['', 'Biologica'], ['adottiva', 'Adottiva'], ['affidataria', 'Affidataria']] : [['', 'Coniuge'], ['partner', 'Partner'], ['ex', 'Ex coniuge/partner']] }, { n: 'x', l: 'Oppure relazione personalizzata', ph: 'es. convivente, figliastro' }];
 const kindOf = f => (f.x || '').trim() || f.k || '';
 function ask(title, fields, cb) {
@@ -272,15 +285,20 @@ function edit(id) {
 function showDet() {
   const d = $('#det'); if (!sel) { d.hidden = true; return }
   const p = M.get(sel), t = T(), s = sel; d.hidden = false;
-  const rows = (list, label) => list.length ? `<h4>${label}</h4>` + list.map(([id, r]) => `<div class="rr"><a data-go="${esc(id)}">${esc(fullname(M.get(id)))}</a>${r ? `<small>${esc(r.k)}</small><button data-act="rk" data-r="${r.id}" title="Cambia tipo">✎</button><button data-act="unl" data-r="${r.id}" title="Rimuovi relazione">✕</button>` : ''}</div>`).join('') : '';
+  const rows = (list, label) => list.length ? `<h4>${label}</h4>` + list.map(([id, r]) => `<div class="rr"><a data-go="${esc(id)}">${esc(fullname(M.get(id)))}</a>${r ? `<small>${esc(r.k)}</small><button class="ib" data-act="rk" data-r="${r.id}" title="Cambia tipo" aria-label="Cambia tipo">${ic('edit')}</button><button class="ib" data-act="unl" data-r="${r.id}" title="Rimuovi relazione" aria-label="Rimuovi relazione">${ic('x')}</button>` : ''}</div>`).join('') : '';
   const pa = t.rels.filter(r => r.t === 'pc' && r.c === s).map(r => [r.p, r]), ch = t.rels.filter(r => r.t === 'pc' && r.p === s).map(r => [r.c, r]);
   const un = t.rels.filter(r => r.t === 'un' && (r.a === s || r.b === s)).map(r => [r.a === s ? r.b : r.a, r]);
   const sb = new Set(); pa.forEach(([i]) => (KIDS.get(i) || []).forEach(c => c !== s && sb.add(c)));
-  const info = [['Nato/a', [fmt(p.bd, p.bm, p.by), p.luogoN].filter(Boolean).join(' – ')], ['Morto/a', [fmt(p.dd, p.dm, p.dy), p.luogoM].filter(Boolean).join(' – ')], ['Professione', p.prof], ['Nazionalità', p.naz], ['Note', p.bio], ['Altro', p.altro]].filter(x => x[1]).map(([a, b]) => `<p><span class="mu">${a}:</span> ${esc(b)}</p>`).join('');
-  d.innerHTML = `<button data-act="cls" style="float:right">✕</button>${p.foto ? `<img class="pv" src="${esc(p.foto)}">` : ''}<h3>${esc(fullname(p))}</h3><div class="mu">${esc(dline(p))}</div>${info}
-  <div class="bt"><button class="pri" data-act="edit">Modifica</button><button data-act="ar" data-t="parent">+ Genitore</button><button data-act="ar" data-t="child">+ Figlio</button><button data-act="ar" data-t="partner">+ Partner</button><button data-act="ar" data-t="sib">+ Fratello/sorella</button><button data-act="link">Collega esistente</button>
-  <button data-act="ctr">Centra</button><button data-act="ref">${t.ref === s ? '★ Riferimento' : 'Imposta riferimento'}</button><button data-act="col">${collapsed.has(s) ? 'Espandi ramo' : 'Comprimi ramo'}</button><button data-act="dup">Duplica</button><button class="dg" data-act="del">Elimina</button></div>
-  ${rows(pa, 'Genitori')}${rows(un, 'Partner')}${rows(ch, 'Figli')}${rows([...sb].map(i => [i, null]), 'Fratelli e sorelle')}`;
+  const info = [['Nato/a', [fmt(p.bd, p.bm, p.by), p.luogoN].filter(Boolean).join(' – ')], ['Morto/a', [fmt(p.dd, p.dm, p.dy), p.luogoM].filter(Boolean).join(' – ')], ['Professione', p.prof], ['Nazionalità', p.naz], ['Note', p.bio], ['Altro', p.altro]].filter(x => x[1]).map(([a, b]) => `<div class="if"><span>${a}</span><div>${esc(b)}</div></div>`).join('');
+  const tl = (a, i, l, x = '') => `<button class="tl" data-act="${a}" ${x}>${ic(i)}<span>${l}</span></button>`;
+  const av = p.foto ? `<img class="av" src="${esc(p.foto)}" alt="">` : `<span class="av" style="background:${{ M: '#7aa7e8', F: '#e88fb0' }[p.sesso] || '#a5adbb'}">${esc((fullname(p)[0] || '?').toUpperCase())}</span>`;
+  d.innerHTML = `<span class="grab"></span><div class="dh"><button class="ib" data-act="cls" aria-label="Chiudi scheda">${ic('x')}</button></div>
+  <div class="pf">${av}<div><h3>${esc(fullname(p))}</h3><div class="mu">${esc(dline(p)) || 'Date non indicate'}</div></div></div>${info}
+  <button class="pri wide" data-act="edit">${ic('edit')}Modifica scheda</button>
+  <h4>Aggiungi familiare</h4><div class="tiles">${tl('ar', 'up', 'Genitore', 'data-t="parent"')}${tl('ar', 'down', 'Figlio/a', 'data-t="child"')}${tl('ar', 'heart', 'Partner', 'data-t="partner"')}${tl('ar', 'swap', 'Fratello', 'data-t="sib"')}</div>
+  <h4>Azioni</h4><div class="tiles">${tl('link', 'link', 'Collega esistente')}${tl('ctr', 'target', 'Centra')}${tl('ref', 'star', t.ref === s ? 'Rimuovi riferimento' : 'Imposta riferimento')}${tl('col', 'chevron', collapsed.has(s) ? 'Espandi ramo' : 'Comprimi ramo')}${tl('dup', 'copy', 'Duplica')}</div>
+  ${rows(pa, 'Genitori')}${rows(un, 'Partner')}${rows(ch, 'Figli')}${rows([...sb].map(i => [i, null]), 'Fratelli e sorelle')}
+  <button class="dg wide" data-act="del">${ic('trash')}Elimina persona</button>`;
 }
 const mk = () => { const p = { ...blank(), id: uid() }; T().people.push(p); return p.id };
 const link = (p, c, k) => T().rels.push({ id: uid(), t: 'pc', p, c, k: k || 'bio' });
@@ -313,6 +331,7 @@ const ACT = {
   del: () => { if (!confirm('Eliminare “' + fullname(M.get(sel)) + '” e le sue relazioni?')) return; snap(); const t = T(); t.people = t.people.filter(p => p.id !== sel); if (t.ref === sel) t.ref = null; collapsed.delete(sel); sel = null; commit() },
   unl: b => { snap(); T().rels = T().rels.filter(r => r.id !== b.dataset.r); commit() },
   rk: b => { const r = T().rels.find(x => x.id === b.dataset.r); ask('Tipo di relazione', kindField(r.t), f => { snap(); r.k = kindOf(f) || (r.t === 'pc' ? 'bio' : 'coniuge'); commit() }) },
+  more: () => modal('Altro', [['check', 'check', 'Controllo relazioni'], ['download', 'io', 'Importa / Esporta'], ['file', 'pdf', 'Esporta PDF'], ['theme', 'theme', 'Tema chiaro / scuro']].map(([i, a, l]) => `<button class="lr" data-act="${a}">${ic(i)}<span>${l}</span></button>`).join('')),
   theme: () => { S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; commit() },
   demo: () => {
     snap(); const t = T(), P = (n, c, s, y) => { const p = { ...blank(), id: uid(), nome: n, cognome: c, sesso: s, by: String(y) }; t.people.push(p); return p.id };
@@ -336,7 +355,7 @@ const ACT = {
     modal('Impostazioni', SC.map(([t, f]) => `<div class="sec">${t}</div>` + f.map(([k, l, ty, a, b]) => `<div class="row"><span>${l}</span>` + (ty === 'r' ? `<input type="range" data-s="${k}" min="${a}" max="${b}" value="${S.settings[k]}">` : ty === 'c' ? `<input type="color" data-s="${k}" value="${S.settings[k]}">` : ty === 'b' ? `<input type="checkbox" data-s="${k}"${S.settings[k] ? ' checked' : ''}>` : `<select data-s="${k}">${a.map(o => `<option value="${esc(o[0])}"${S.settings[k] === o[0] ? ' selected' : ''}>${o[1]}</option>`).join('')}</select>`) + '</div>').join('')).join(''), `<button data-act="reset">Ripristina predefiniti</button><button class="pri" data-act="close">Fatto</button>`);
   },
   reset: () => { S.settings = { ...DEF }; commit(); ACT.settings() },
-  io: () => modal('Importa / Esporta', `<p><button class="pri" data-act="expjson">⬇ Esporta albero in JSON</button></p><p>Importa JSON: <input type="file" id="imp" accept=".json,application/json"></p><p class="mu">Il file contiene persone, relazioni e impostazioni grafiche. Prima dell’importazione verrà mostrata un’anteprima.</p>`),
+  io: () => modal('Importa / Esporta', `<p><button class="pri" data-act="expjson">${ic('download')}Esporta albero in JSON</button></p><p>Importa JSON: <input type="file" id="imp" accept=".json,application/json"></p><p class="mu">Il file contiene persone, relazioni e impostazioni grafiche. Prima dell’importazione verrà mostrata un’anteprima.</p>`),
   expjson: () => {
     const t = T(), o = { format: 'albero-genealogico', version: 1, exported: new Date().toISOString(), settings: S.settings, tree: { name: t.name, ref: t.ref, people: t.people, rels: t.rels } };
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' })); a.download = t.name.replace(/\W+/g, '_') + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -444,4 +463,5 @@ function pdf(o) {
 }
 
 /* ===== AVVIO ===== */
-load(); render(); fit(); addEventListener('resize', () => { });
+function fitSmart() { fit(); if (innerWidth < 800 && L && L.n && V.k < .5) { V.k = .8; center(T().ref || L.nodes[0].id) } }
+load(); render(); fitSmart();
