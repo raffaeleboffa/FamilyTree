@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alberi Genealogici</title><link rel="stylesheet" href="style.css"></head><body>
+<aside id="side"><h1>🌳<span>Genealogia</span></h1>
+<button data-act="trees"><b>🗂️</b><span>Alberi</span></button>
+<button data-act="stats"><b>📊</b><span>Statistiche</span></button>
+<button data-act="check"><b>🔍</b><span>Controllo relazioni</span></button>
+<button data-act="settings"><b>⚙️</b><span>Impostazioni</span></button>
+<button data-act="io"><b>💾</b><span>Importa / Esporta</span></button>
+<button data-act="pdf"><b>📄</b><span>Esporta PDF</span></button>
+<button data-act="theme"><b>🌓</b><span>Tema chiaro/scuro</span></button></aside>
+<main><header id="top">
+<button class="pri" data-act="add">＋ Persona</button>
+<button data-act="undo" title="Annulla (Ctrl+Z)">↶</button><button data-act="redo" title="Ripristina (Ctrl+Y)">↷</button>
+<strong id="tn"></strong><span class="sp"></span>
+<button data-act="zin" title="Zoom avanti">＋</button><button data-act="zout" title="Zoom indietro">－</button><button data-act="fit">Adatta</button>
+<select id="vm" title="Parte di famiglia da visualizzare"><option value="all">Tutta la famiglia</option><option value="desc">Discendenti del riferimento</option><option value="anc">Antenati del riferimento</option></select>
+<div class="sw"><input id="q" placeholder="Cerca persona…" autocomplete="off"><div id="sr" hidden></div></div>
+</header>
+<div id="stage"><svg id="svg"><g id="vp"></g></svg>
+<div id="empty" hidden><p>L’albero è vuoto.</p><button class="pri" data-act="add">Aggiungi la prima persona</button><button data-act="demo">Carica un esempio</button></div>
+<aside id="det" hidden></aside></div></main>
+<dialog id="dlg"></dialog><div id="toast"></div>
+<script src="script.js"></script></body></html>
