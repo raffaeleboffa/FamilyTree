@@ -8,7 +8,11 @@ const ic = n => `<svg class="i"><use href="#i-${n}"/></svg>`;
 const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 const KEYS = ['nome', 'secondo', 'cognome', 'nick', 'sesso', 'bd', 'bm', 'by', 'luogoN', 'dd', 'dm', 'dy', 'luogoM', 'foto', 'bio', 'prof', 'naz', 'altro'];
 const blank = () => Object.fromEntries(KEYS.map(k => [k, '']));
-const DEF = { gapX: 30, gapY: 90, cw: 180, ch: 70, av: 44, bg: '#ffffff', bd: '#6b7a99', lk: '#8a94a8', uc: '#d9534f', ac: '#d98c2b', lw: 2, ls: 'solid', rad: 10, font: 'system-ui,sans-serif', fs: 13, dates: true, places: false, photos: true, orient: 'v', genc: false, theme: 'light' };
+/* Privacy: "vivente" = nessuna data/luogo di morte e non nato più di 110 anni fa. Le persone viventi possono essere oscurate in JSON e PDF. */
+let MASK = false, GENFB = false, full = false;
+const isLiving = p => !(p.dd || p.dm || p.dy || p.luogoM) && !(p.by && +p.by < new Date().getFullYear() - 110);
+const maskP = p => isLiving(p) ? { ...blank(), id: p.id, nome: 'Persona vivente' } : p;
+const DEF = { gapX: 30, gapY: 90, cw: 180, ch: 70, av: 44, bg: '#ffffff', bd: '#6b7a99', lk: '#8a94a8', uc: '#d9534f', ac: '#d98c2b', lw: 2, ls: 'solid', rad: 10, font: 'system-ui,sans-serif', fs: 13, dates: true, places: false, photos: true, orient: 'v', genc: false, theme: 'light', mask: false };
 
 /* ===== DATI E PERSISTENZA (localStorage, salvataggio automatico) ===== */
 const KEY = 'albero_gen_v1';
@@ -20,7 +24,11 @@ function load() {
   if (!S || !Array.isArray(S.trees) || !S.trees.length) { S = { settings: {}, trees: [newTree('Il mio albero')] }; S.cur = S.trees[0].id }
   S.settings = { ...DEF, ...S.settings };
 }
-let st; const save = () => { clearTimeout(st); st = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)) } catch (e) { toast('Archivio pieno: esporta un backup JSON') } }, 250) };
+let st; const save = () => { clearTimeout(st); st = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); full = false } catch (e) { storageFull() } }, 250) };
+function storageFull() {
+  if (full) return; full = true;
+  modal('Archivio locale pieno', `<p><b>Le ultime modifiche non sono state salvate</b>: il browser non permette di conservare altri dati su questo dispositivo (le fotografie occupano molto spazio).</p><p>Esporta subito un backup JSON, poi elimina alcune fotografie o gli alberi che non servono.</p>`, `<button data-act="close">Chiudi</button><button class="pri" data-act="expjson">${ic('download')}Esporta backup</button>`);
+}
 const T = () => S.trees.find(t => t.id === S.cur) || S.trees[0];
 /* Cronologia annulla/ripristina: istantanee degli alberi */
 const snap = () => { hist.push(JSON.stringify(S.trees)); if (hist.length > 100) hist.shift(); fut = [] };
@@ -69,7 +77,7 @@ function gens(vis, eq = true) {
     if (eq) for (const [p, ks] of KIDS) if (p in g) { let m = -1; for (const c of ks) if (c in g) m = Math.max(m, g[c]); for (const c of ks) if (c in g && g[c] < m) { g[c] = m; ch = 1 } }
   }
   /* Vincoli contraddittori (es. zio che sposa la nipote): si usano le generazioni naturali, senza allineamenti forzati */
-  if (eq && ch) return gens(vis, false);
+  if (eq && ch) { GENFB = true; return gens(vis, false) }
   /* Nuclei "radice" (nessun membro ha genitori visibili): vanno sulla riga subito sopra al figlio più alto,
      non sempre sulla riga 0. Così i nonni di un ramo acquisito stanno nella loro vera generazione. */
   const seen = new Set();
@@ -195,11 +203,11 @@ function draw(Lr, s, ex) {
   }
   let n = 0; const ref = T().ref;
   for (const { id, x, y, g: gg } of nodes) {
-    const p = M.get(id), { bg, fg } = colors(gg, s), pad = 8, off = s.photos ? s.av + pad * 2 : pad * 1.5, isSel = !ex && id === sel;
+    const p = MASK ? maskP(M.get(id)) : M.get(id), { bg, fg } = colors(gg, s), pad = 8, off = s.photos ? s.av + pad * 2 : pad * 1.5, isSel = !ex && id === sel;
     const lines = [[fullname(p), 600, s.fs]]; const d = s.dates && dline(p); if (d) lines.push([d, 400, s.fs - 2]);
     const pl = s.places && [p.luogoN, p.luogoM].filter(Boolean).join(' → '); if (pl) lines.push([pl, 400, s.fs - 3]);
     const mx = Math.max(4, Math.floor((s.cw - off - pad) / (s.fs * .55))), lh = s.fs * 1.35, t0 = s.ch / 2 - lines.length * lh / 2 + s.fs * .95;
-    o += `<g class="n" data-id="${esc(id)}" transform="translate(${x} ${y})"><title>${esc(fullname(p))}</title>`;
+    o += `<g class="n" data-id="${esc(id)}"${ex ? '' : ` tabindex="0" role="button" aria-pressed="${isSel}" aria-label="${esc(fullname(p) + (dline(p) ? ', ' + dline(p) : ''))}"`} transform="translate(${x} ${y})"><title>${esc(fullname(p))}</title>`;
     if (isSel) o += `<rect x="-5" y="-5" width="${s.cw + 10}" height="${s.ch + 10}" rx="${s.rad + 4}" fill="none" stroke="${ac}" stroke-opacity=".3" stroke-width="5"/>`;
     o += `<rect width="${s.cw}" height="${s.ch}" rx="${s.rad}" fill="${bg}" stroke="${isSel ? ac : s.bd}" stroke-width="${isSel ? 3 : 1.5}"/>`;
     if (s.photos) {
@@ -219,6 +227,9 @@ function render() {
   const s = S.settings; document.documentElement.dataset.theme = s.theme;
   L = layout(visSet(mode, T().ref), s); $('#vp').innerHTML = draw(L, s, false);
   $('#empty').hidden = M.size > 0; $('#tn').textContent = T().name; $('#vm').value = mode; showDet();
+  const demo = !!T().demo, tip = !demo && !S.tipOff && M.size > 0 && M.size < 5; $('#demo').hidden = !demo; $('#tip').hidden = !tip;
+  if (tip) $('#tt').textContent = M.size < 2 ? 'Bene! Tocca la persona e usa «Genitore», «Partner» o «Figlio/a» per far crescere l’albero.' : 'Continua così: tocca una persona per aggiungere altri familiari. Trascina per spostarti, rotella o pizzico per ingrandire.';
+  if (sel) $('#live').textContent = 'Selezionato: ' + fullname(M.get(sel));
 }
 
 /* ===== ZOOM / PAN ===== */
@@ -242,10 +253,20 @@ addEventListener('pointermove', e => {
 });
 const pend = e => { ptr.delete(e.pointerId); if (ptr.size < 2) pin = null; if (!drag) return; if (!drag.mv && e.type === 'pointerup') { sel = drag.t ? drag.t.dataset.id : null; render() } drag = null };
 addEventListener('pointerup', pend); addEventListener('pointercancel', pend);
+/* Tastiera: Tab scorre le schede, Invio/Spazio selezionano, le frecce passano ai familiari */
+const focusNode = id => { const el = [...document.querySelectorAll('#vp .n')].find(x => x.dataset.id === id); if (el) el.focus() };
+const rowNb = (id, d) => { const n = L.map[id]; if (!n) return; const k = L.v ? 'x' : 'y', r = L.nodes.filter(x => x.g === n.g).sort((a, b) => a[k] - b[k]); return r[r.indexOf(n) + d]?.id };
+svg.addEventListener('keydown', e => {
+  const el = e.target.closest && e.target.closest('.n'); if (!el) return; const id = el.dataset.id;
+  const nx = { ArrowUp: () => (PARS.get(id) || []).find(p => L.map[p]), ArrowDown: () => (KIDS.get(id) || []).find(c => L.map[c]), ArrowLeft: () => rowNb(id, -1), ArrowRight: () => rowNb(id, 1) }[e.key];
+  const go = n => { if (!n) return; sel = n; render(); center(n); focusNode(n) };
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(id) } else if (nx) { e.preventDefault(); go(nx()) }
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && sel && !$('#dlg').open && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { sel = null; render() } });
 svg.addEventListener('dblclick', e => { const n = e.target.closest('.n'); if (n) { const id = n.dataset.id; collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id); render() } });
 
 /* ===== DIALOGHI ===== */
-function modal(t, b, f = '') { const d = $('#dlg'); d.innerHTML = `<div class="mh"><h2>${t}</h2><button class="ib" data-act="close" aria-label="Chiudi">${ic('x')}</button></div><div class="mb">${b}</div><div class="mf">${f}</div>`; if (!d.open) d.showModal() }
+function modal(t, b, f = '') { const d = $('#dlg'); d.setAttribute('aria-label', t); d.innerHTML = `<div class="mh"><h2>${t}</h2><button class="ib" data-act="close" aria-label="Chiudi">${ic('x')}</button></div><div class="mb">${b}</div><div class="mf">${f}</div>`; if (!d.open) d.showModal() }
 const kindField = t => [{ n: 'k', l: 'Tipo di relazione', o: t === 'pc' ? [['', 'Biologica'], ['adottiva', 'Adottiva'], ['affidataria', 'Affidataria']] : [['', 'Coniuge'], ['partner', 'Partner'], ['ex', 'Ex coniuge/partner']] }, { n: 'x', l: 'Oppure relazione personalizzata', ph: 'es. convivente, figliastro' }];
 const kindOf = f => (f.x || '').trim() || f.k || '';
 function ask(title, fields, cb) {
@@ -260,7 +281,7 @@ function edit(id) {
   const p = M.get(id); if (!p) return; let foto = p.foto;
   const inp = (k, l) => `<label>${l}<input name="${k}" value="${esc(p[k])}"></label>`;
   const dt = (l, a, b, c) => `<label class="full">${l}<fieldset>${[[a, 'Giorno'], [b, 'Mese'], [c, 'Anno']].map(([k, ph]) => `<input name="${k}" value="${esc(p[k])}" placeholder="${ph}" inputmode="numeric">`).join('')}</fieldset></label>`;
-  modal('Scheda persona', `<form id="af" class="grid">${inp('nome', 'Nome')}${inp('cognome', 'Cognome')}${inp('secondo', 'Secondo nome')}${inp('nick', 'Soprannome')}
+  modal('Scheda persona', `<form id="af" class="grid"><p class="note full">${ic('lock')}<span>Inserisci solo dati che hai il diritto di conservare. Restano su questo dispositivo.</span></p>${inp('nome', 'Nome')}${inp('cognome', 'Cognome')}${inp('secondo', 'Secondo nome')}${inp('nick', 'Soprannome')}
   <label>Genere<select name="sesso">${[['', 'Non specificato'], ['M', 'Maschio'], ['F', 'Femmina'], ['A', 'Altro']].map(o => `<option value="${o[0]}"${p.sesso === o[0] ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></label>${inp('prof', 'Professione')}
   ${dt('Data di nascita (anche parziale)', 'bd', 'bm', 'by')}${inp('luogoN', 'Luogo di nascita')}<span></span>${dt('Data di morte (anche parziale)', 'dd', 'dm', 'dy')}${inp('luogoM', 'Luogo di morte')}${inp('naz', 'Nazionalità')}
   <label class="full">Fotografia<span><input type="file" id="ph" accept="image/*"> <img id="pv" class="pv" ${foto ? `src="${esc(foto)}"` : 'hidden'}> <button type="button" id="rp">Rimuovi foto</button></span></label>
@@ -331,15 +352,41 @@ const ACT = {
   del: () => { if (!confirm('Eliminare “' + fullname(M.get(sel)) + '” e le sue relazioni?')) return; snap(); const t = T(); t.people = t.people.filter(p => p.id !== sel); if (t.ref === sel) t.ref = null; collapsed.delete(sel); sel = null; commit() },
   unl: b => { snap(); T().rels = T().rels.filter(r => r.id !== b.dataset.r); commit() },
   rk: b => { const r = T().rels.find(x => x.id === b.dataset.r); ask('Tipo di relazione', kindField(r.t), f => { snap(); r.k = kindOf(f) || (r.t === 'pc' ? 'bio' : 'coniuge'); commit() }) },
-  more: () => modal('Altro', [['check', 'check', 'Controllo relazioni'], ['download', 'io', 'Importa / Esporta'], ['file', 'pdf', 'Esporta PDF'], ['theme', 'theme', 'Tema chiaro / scuro']].map(([i, a, l]) => `<button class="lr" data-act="${a}">${ic(i)}<span>${l}</span></button>`).join('')),
+  more: () => {
+    modal('Altro', `<label class="full">Vista dell’albero<select id="vm2">${[['all', 'Tutta la famiglia'], ['desc', 'Discendenti del riferimento'], ['anc', 'Antenati del riferimento']].map(o => `<option value="${o[0]}"${mode === o[0] ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></label><div style="height:14px"></div>` + [['check', 'check', 'Controllo relazioni'], ['download', 'io', 'Importa / Esporta'], ['file', 'pdf', 'Esporta PDF'], ['lock', 'privacy', 'Privacy e dati'], ['theme', 'theme', 'Tema chiaro / scuro']].map(([i, a, l]) => `<button class="lr" data-act="${a}">${ic(i)}<span>${l}</span></button>`).join(''));
+    $('#vm2').onchange = e => { if (setMode(e.target.value)) $('#dlg').close(); else e.target.value = mode };
+  },
+  srch: () => { const tp = $('#top'), on = tp.classList.toggle('so'); if (on) $('#q').focus(); else { $('#q').value = ''; $('#sr').hidden = true } },
+  start: () => ask('Crea il tuo albero · partiamo da te', [{ n: 'nome', l: 'Il tuo nome', ph: 'facoltativo' }, { n: 'cognome', l: 'Il tuo cognome', ph: 'facoltativo' }], f => {
+    snap(); const p = { ...blank(), id: uid(), nome: (f.nome || '').trim(), cognome: (f.cognome || '').trim() }; T().people.push(p); T().ref = p.id; sel = p.id; commit(); center(p.id);
+  }),
+  tipx: () => { S.tipOff = true; save(); render() },
+  enddemo: () => {
+    if (!confirm('Eliminare l’esempio e iniziare il tuo albero? I tuoi altri alberi non vengono toccati.')) return;
+    S.trees = S.trees.filter(x => !x.demo); if (!S.trees.length) S.trees.push(newTree('Il mio albero'));
+    S.cur = S.trees[0].id; sel = null; collapsed.clear(); mode = 'all'; commit(); fitSmart();
+  },
+  privacy: () => {
+    const kb = Math.round(new Blob([JSON.stringify(S)]).size / 1024);
+    modal('Privacy e dati', `<div class="sec">Dove sono salvati i dati</div>
+    <p>Persone, relazioni e fotografie restano <b>solo in questo browser, su questo dispositivo</b>. Family Tree non ha account né server: nessun dato viene inviato online.</p>
+    <p class="mu">Spazio usato: circa ${kb} KB (il limite del browser è di circa 5.000 KB). Cancellare i dati di navigazione o cambiare dispositivo elimina l’albero: tieni un backup con l’esportazione JSON.</p>
+    <div class="sec">Dati personali</div>
+    <p>Un albero contiene informazioni su persone reali, spesso viventi, e le fotografie sono dati sensibili. Inserisci solo ciò che hai il diritto di conservare e, prima di condividere un file o un PDF, tieni conto del consenso delle persone coinvolte.</p>
+    <label class="ck"><input type="checkbox" data-s="mask"${S.settings.mask ? ' checked' : ''}> Oscura le persone viventi in JSON e PDF</label>
+    <p class="mu">Si considera vivente chi non ha data né luogo di morte e non è nato più di 110 anni fa. Nome, foto, date, luoghi e note diventano «Persona vivente»; la struttura dei rapporti resta.</p>
+    <div class="sec">Eliminazione</div><button class="dg" data-act="wipe">${ic('trash')}Elimina tutti i dati da questo dispositivo</button>`,
+      `<button data-act="expjson">${ic('download')}Esporta backup</button><button class="pri" data-act="close">Ho capito</button>`);
+  },
+  wipe: () => { if (!confirm('Eliminare DEFINITIVAMENTE tutti gli alberi salvati in questo browser? Questa azione non si può annullare.')) return; clearTimeout(st); try { localStorage.removeItem(KEY) } catch (e) { } location.reload() },
   theme: () => { S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; commit() },
   demo: () => {
-    snap(); const t = T(), P = (n, c, s, y) => { const p = { ...blank(), id: uid(), nome: n, cognome: c, sesso: s, by: String(y) }; t.people.push(p); return p.id };
+    snap(); const t = newTree('Esempio · dati dimostrativi'); t.demo = true; S.trees.push(t); S.cur = t.id; const P = (n, c, s, y) => { const p = { ...blank(), id: uid(), nome: n, cognome: c, sesso: s, by: String(y) }; t.people.push(p); return p.id };
     const a = P('Giuseppe', 'Rossi', 'M', 1920), b = P('Maria', 'Bianchi', 'F', 1924), c = P('Luigi', 'Rossi', 'M', 1948), d = P('Anna', 'Verdi', 'F', 1950), e = P('Paola', 'Rossi', 'F', 1951), f = P('Marco', 'Neri', 'M', 1949), g = P('Elena', 'Gallo', 'F', 1955), h = P('Sara', 'Rossi', 'F', 1975), i = P('Luca', 'Rossi', 'M', 1978), j = P('Giulia', 'Neri', 'F', 1976), k = P('Davide', 'Neri', 'M', 1980);
-    union(a, b); link(a, c); link(b, c); link(a, e); link(b, e); union(c, d, 'ex'); union(c, g); link(c, h); link(d, h); link(c, i, 'adottiva'); link(g, i, 'adottiva'); union(e, f); link(e, j); link(f, j); link(e, k); link(f, k); commit(); fit();
+    union(a, b); link(a, c); link(b, c); link(a, e); link(b, e); union(c, d, 'ex'); union(c, g); link(c, h); link(d, h); link(c, i, 'adottiva'); link(g, i, 'adottiva'); union(e, f); link(e, j); link(f, j); link(e, k); link(f, k); t.ref = i; sel = null; collapsed.clear(); mode = 'all'; commit(); fitSmart();
   },
   trees: () => {
-    modal('Alberi genealogici', `<table>${S.trees.map(t => `<tr><td>${t.id === S.cur ? '● ' : ''}<b>${esc(t.name)}</b> <span class="mu">(${t.people.length})</span></td><td align="right"><button data-act="topen" data-t="${t.id}">Apri</button> <button data-act="tren" data-t="${t.id}">Rinomina</button> <button class="dg" data-act="tdel" data-t="${t.id}">Elimina</button></td></tr>`).join('')}</table>`, `<button class="pri" data-act="tnew">Nuovo albero</button>`);
+    modal('Alberi genealogici', `<table>${S.trees.map(t => `<tr><td>${t.id === S.cur ? '● ' : ''}<b>${esc(t.name)}</b>${t.demo ? ' <span class="mu">(esempio)</span>' : ''} <span class="mu">(${t.people.length})</span></td><td align="right"><button data-act="topen" data-t="${t.id}">Apri</button> <button data-act="tren" data-t="${t.id}">Rinomina</button> <button class="dg" data-act="tdel" data-t="${t.id}">Elimina</button></td></tr>`).join('')}</table>`, `<button class="pri" data-act="tnew">Nuovo albero</button>`);
   },
   topen: b => { S.cur = b.dataset.t; sel = null; collapsed.clear(); mode = 'all'; $('#dlg').close(); commit(); fit() },
   tnew: () => { const n = prompt('Nome del nuovo albero:', 'Nuovo albero'); if (!n) return; const t = newTree(n); S.trees.push(t); S.cur = t.id; sel = null; $('#dlg').close(); commit(); fit() },
@@ -355,12 +402,12 @@ const ACT = {
     modal('Impostazioni', SC.map(([t, f]) => `<div class="sec">${t}</div>` + f.map(([k, l, ty, a, b]) => `<div class="row"><span>${l}</span>` + (ty === 'r' ? `<input type="range" data-s="${k}" min="${a}" max="${b}" value="${S.settings[k]}">` : ty === 'c' ? `<input type="color" data-s="${k}" value="${S.settings[k]}">` : ty === 'b' ? `<input type="checkbox" data-s="${k}"${S.settings[k] ? ' checked' : ''}>` : `<select data-s="${k}">${a.map(o => `<option value="${esc(o[0])}"${S.settings[k] === o[0] ? ' selected' : ''}>${o[1]}</option>`).join('')}</select>`) + '</div>').join('')).join(''), `<button data-act="reset">Ripristina predefiniti</button><button class="pri" data-act="close">Fatto</button>`);
   },
   reset: () => { S.settings = { ...DEF }; commit(); ACT.settings() },
-  io: () => modal('Importa / Esporta', `<p><button class="pri" data-act="expjson">${ic('download')}Esporta albero in JSON</button></p><p>Importa JSON: <input type="file" id="imp" accept=".json,application/json"></p><p class="mu">Il file contiene persone, relazioni e impostazioni grafiche. Prima dell’importazione verrà mostrata un’anteprima.</p>`),
+  io: () => modal('Importa / Esporta', `<p><button class="pri" data-act="expjson">${ic('download')}Esporta albero in JSON</button></p><label class="ck"><input type="checkbox" data-s="mask"${S.settings.mask ? ' checked' : ''}> Oscura le persone viventi nelle esportazioni</label><p>Importa JSON: <input type="file" id="imp" accept=".json,application/json"></p><p class="mu">Il file contiene persone, relazioni e impostazioni grafiche. Prima dell’importazione verrà mostrata un’anteprima.</p>`),
   expjson: () => {
-    const t = T(), o = { format: 'albero-genealogico', version: 1, exported: new Date().toISOString(), settings: S.settings, tree: { name: t.name, ref: t.ref, people: t.people, rels: t.rels } };
+    const t = T(), o = { format: 'albero-genealogico', version: 1, exported: new Date().toISOString(), privacy: { livingMasked: !!S.settings.mask }, settings: S.settings, tree: { name: t.name, ref: t.ref, people: S.settings.mask ? t.people.map(maskP) : t.people, rels: t.rels } };
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' })); a.download = t.name.replace(/\W+/g, '_') + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   },
-  pdf: () => ask('Esporta PDF vettoriale', [{ n: 'scope', l: 'Contenuto', o: [['all', 'Albero completo'], ['desc', 'Solo discendenti (persona selezionata o di riferimento)'], ['anc', 'Solo antenati (persona selezionata o di riferimento)']] }, { n: 'orient', l: 'Formato pagina', o: [['auto', 'Automatico (si adatta alla dimensione dell’albero)'], ['landscape', 'A3 orizzontale'], ['portrait', 'A3 verticale']] }], pdf),
+  pdf: () => ask('Esporta PDF vettoriale', [{ n: 'scope', l: 'Contenuto', o: [['all', 'Albero completo'], ['desc', 'Solo discendenti (persona selezionata o di riferimento)'], ['anc', 'Solo antenati (persona selezionata o di riferimento)']] }, { n: 'orient', l: 'Formato pagina', o: [['auto', 'Automatico (si adatta alla dimensione dell’albero)'], ['landscape', 'A3 orizzontale'], ['portrait', 'A3 verticale']] }, { n: 'mask', l: 'Persone viventi', o: S.settings.mask ? [['1', 'Oscura (nome, foto, date, luoghi)'], ['', 'Mostra']] : [['', 'Mostra'], ['1', 'Oscura (nome, foto, date, luoghi)']] }], pdf),
   imgo: b => doImport(b.dataset.m),
 };
 document.addEventListener('click', e => {
@@ -369,7 +416,8 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.sw')) $('#sr').hidden = true;
 });
 function go(id) { if (!L.map[id]) { mode = 'all'; } sel = id; $('#sr').hidden = true; if ($('#dlg').open) $('#dlg').close(); render(); center(id) }
-$('#vm').onchange = e => { if (e.target.value !== 'all' && !(T().ref || sel)) { toast('Imposta prima una persona di riferimento'); e.target.value = 'all'; return } if (!T().ref && sel) T().ref = sel; mode = e.target.value; commit(); fit() };
+function setMode(v) { if (v !== 'all' && !(T().ref || sel)) { toast('Imposta prima una persona di riferimento'); return false } if (!T().ref && sel) T().ref = sel; mode = v; commit(); fit(); return true }
+$('#vm').onchange = e => { if (!setMode(e.target.value)) e.target.value = 'all' };
 $('#q').addEventListener('input', e => {
   const q = e.target.value.trim().toLowerCase(), r = $('#sr'); if (!q) { r.hidden = true; return }
   const res = T().people.filter(p => KEYS.some(k => k !== 'foto' && String(p[k]).toLowerCase().includes(q))).slice(0, 8);
@@ -390,6 +438,7 @@ document.addEventListener('input', e => {
 /* ===== CONTROLLO COERENZA ===== */
 function issues() {
   const o = [], t = T(), nm = i => fullname(M.get(i)), yr = i => +M.get(i).by || null;
+  GENFB = false; gens(new Set(M.keys())); if (GENFB) o.push('Alcune relazioni sono contraddittorie (es. un parente che sposa un proprio discendente): le generazioni sono mostrate secondo la discendenza naturale.');
   const indeg = new Map(t.people.map(p => [p.id, 0])); t.rels.filter(r => r.t === 'pc').forEach(r => indeg.set(r.c, indeg.get(r.c) + 1));
   const q = [...indeg].filter(x => !x[1]).map(x => x[0]); let seen = 0;
   while (q.length) { const i = q.pop(); seen++; for (const c of KIDS.get(i) || []) { indeg.set(c, indeg.get(c) - 1); if (!indeg.get(c)) q.push(c) } }
@@ -424,7 +473,7 @@ function parseImport(o) {
 }
 let PEND = null;
 document.addEventListener('change', e => {
-  if (e.target.id !== 'imp' || !e.target.files[0]) return; const r = new FileReader();
+  if (e.target.id !== 'imp' || !e.target.files[0]) return; if (e.target.files[0].size > 60e6) return toast('File troppo grande (massimo 60 MB)'); const r = new FileReader();
   r.onload = () => {
     try {
       PEND = parseImport(JSON.parse(r.result)); const cur = new Map(T().people.map(p => [p.id, p]));
@@ -453,10 +502,10 @@ function doImport(m) {
 function pdf(o) {
   const s = S.settings, f = o.scope === 'all' ? null : (sel || T().ref);
   if (o.scope !== 'all' && !f) return toast('Seleziona prima una persona');
-  const Lr = layout(visSet(o.scope, f), s); if (!Lr.n) return toast('Niente da esportare');
+  const Lr = layout(visSet(o.scope, f), s); if (!Lr.n) return toast('Niente da esportare'); if (Lr.n > 1500) toast('Albero molto grande: la preparazione può richiedere qualche secondo…');
   const m = 40, b = Lr.box, W = b.w + 2 * m, H = b.h + 2 * m, bg = s.theme === 'dark' ? '#0f1521' : '#ffffff';
   let size, ar; if (o.orient === 'auto') { const k = Math.min(1, 14400 / Math.max(W, H)); size = `${W * k}px ${H * k}px`; ar = W / H } else { size = 'A3 ' + o.orient; ar = o.orient === 'landscape' ? 420 / 297 : 297 / 420 }
-  const sv = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x - m} ${b.y - m} ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><rect x="${b.x - m}" y="${b.y - m}" width="${W}" height="${H}" fill="${bg}"/>${draw(Lr, s, true)}</svg>`;
+  const sv = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x - m} ${b.y - m} ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><rect x="${b.x - m}" y="${b.y - m}" width="${W}" height="${H}" fill="${bg}"/>${(() => { MASK = o.mask === '1'; try { return draw(Lr, s, true) } finally { MASK = false } })()}</svg>`;
   const w = window.open('', '_blank'); if (!w) return toast('Consenti i popup per vedere l’anteprima');
   w.document.write(`<!doctype html><html lang="it"><meta charset="utf-8"><title>${esc(T().name)}</title><style>*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:${size};margin:0}body{margin:0;background:#777;font:14px system-ui}#bar{position:fixed;top:0;left:0;right:0;background:#222;color:#fff;padding:10px;display:flex;gap:12px;align-items:center}button{padding:6px 14px}#pg{margin:60px auto 20px;aspect-ratio:${ar};max-width:94vw;max-height:calc(100vh - 80px);background:${bg}}@media print{#bar{display:none}#pg{position:fixed;inset:0;margin:0;max-width:none;max-height:none;aspect-ratio:auto}}</style><div id="bar"><button onclick="print()">🖨 Stampa / Salva come PDF</button><span>Anteprima – nel dialogo di stampa scegli «Salva come PDF» e disattiva intestazioni e piè di pagina.</span></div><div id="pg">${sv}</div>`);
   w.document.close(); $('#dlg').open && $('#dlg').close();

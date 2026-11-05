@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#4f6bed">
-<title>Alberi Genealogici</title><link rel="stylesheet" href="style.css"></head><body>
+<title>Family Tree – Alberi genealogici</title><link rel="icon" type="image/svg+xml" href="logo.svg"><link rel="stylesheet" href="style.css"></head><body>
 <!-- Set di icone uniforme (stile a tratto), usato con <use href="#i-nome"> -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 22v-6"/><path d="M12 16c-3.6 0-6.5-2.7-6.5-6.2a6.5 6.5 0 0 1 13 0c0 3.5-2.9 6.2-6.5 6.2z"/></symbol>
@@ -31,10 +31,11 @@
 <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></symbol>
 <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.400-7-10a4 4 0 0 1 7-2.500A4 4 0 0 1 19 10c0 5.600-7 10-7 10z"/></symbol>
 <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
 </defs></svg>
 
 <aside id="side">
-  <div class="brand"><span class="lg"><svg class="i"><use href="#i-tree"/></svg></span>Genealogia</div>
+  <div class="brand"><img class="lgi" src="logo.svg" alt="">Family Tree</div>
   <div class="gt">Albero</div>
   <button data-act="trees"><svg class="i"><use href="#i-folder"/></svg>Alberi</button>
   <button data-act="stats"><svg class="i"><use href="#i-chart"/></svg>Statistiche</button>
@@ -43,29 +44,40 @@
   <button data-act="settings"><svg class="i"><use href="#i-sliders"/></svg>Impostazioni</button>
   <button data-act="io"><svg class="i"><use href="#i-download"/></svg>Importa / Esporta</button>
   <button data-act="pdf"><svg class="i"><use href="#i-file"/></svg>Esporta PDF</button>
+  <button data-act="privacy"><svg class="i"><use href="#i-lock"/></svg>Privacy e dati</button>
   <span class="sp"></span>
   <button data-act="theme"><svg class="i"><use href="#i-theme"/></svg>Tema chiaro / scuro</button>
 </aside>
 
 <main>
 <header id="top">
+  <span class="bm"><img class="lgi" src="logo.svg" alt="">Family Tree</span>
   <button class="pri dk" data-act="add"><svg class="i"><use href="#i-plus"/></svg>Persona</button>
   <div class="grp">
     <button class="ib" data-act="undo" title="Annulla (Ctrl+Z)" aria-label="Annulla"><svg class="i"><use href="#i-undo"/></svg></button>
     <button class="ib" data-act="redo" title="Ripristina (Ctrl+Y)" aria-label="Ripristina"><svg class="i"><use href="#i-redo"/></svg></button>
   </div>
-  <strong id="tn"></strong><span class="sp dk"></span>
+  <strong id="tn"></strong><span class="sp"></span>
   <select id="vm" aria-label="Parte di famiglia da visualizzare"><option value="all">Tutta la famiglia</option><option value="desc">Discendenti del riferimento</option><option value="anc">Antenati del riferimento</option></select>
-  <div class="sw"><svg class="i si"><use href="#i-search"/></svg><input id="q" placeholder="Cerca persona…" autocomplete="off" aria-label="Cerca persona"><div id="sr" hidden></div></div>
+  <button class="ib sb" data-act="srch" aria-label="Cerca persona"><svg class="i"><use href="#i-search"/></svg></button>
+  <div class="sw"><svg class="i si"><use href="#i-search"/></svg><input id="q" placeholder="Cerca persona…" autocomplete="off" aria-label="Cerca persona"><button class="ib sx" data-act="srch" aria-label="Chiudi ricerca"><svg class="i"><use href="#i-x"/></svg></button><div id="sr" hidden></div></div>
 </header>
 <div id="stage">
-  <svg id="svg" role="img" aria-label="Albero genealogico"><g id="vp"></g></svg>
+  <svg id="svg" role="group" aria-label="Albero genealogico. Tab per scorrere le persone, Invio per selezionare, frecce per passare tra i familiari"><g id="vp"></g></svg>
   <div id="empty" hidden>
-    <span class="eic"><svg class="i"><use href="#i-tree"/></svg></span>
-    <h2>Inizia il tuo albero</h2><p class="mu">Aggiungi la prima persona, poi costruisci genitori, figli e partner dalla sua scheda.</p>
-    <div class="er"><button class="pri" data-act="add"><svg class="i"><use href="#i-plus"/></svg>Aggiungi la prima persona</button><button data-act="demo">Carica un esempio</button></div>
+    <img class="lgi big" src="logo.svg" alt="">
+    <h2>Benvenuto in Family Tree</h2><p class="mu">Costruisci il tuo albero genealogico. Come vuoi iniziare?</p>
+    <div class="oc">
+      <button class="card main" data-act="start"><svg class="i"><use href="#i-plus"/></svg><b>Crea il tuo albero</b><span>Parti da te: ti accompagno passo dopo passo.</span></button>
+      <button class="card" data-act="demo"><svg class="i"><use href="#i-tree"/></svg><b>Esplora l’esempio</b><span>Una famiglia inventata per provare ogni funzione. Si elimina con un clic.</span></button>
+    </div>
+    <p class="pv2"><svg class="i"><use href="#i-lock"/></svg>I dati restano su questo dispositivo, nel browser. <button class="lk" data-act="privacy">Scopri di più</button></p>
   </div>
-  <aside id="det" hidden></aside>
+  <div id="bn">
+    <div id="demo" class="bc dm" hidden><span>Stai esplorando un <b>esempio</b> con dati inventati.</span><button class="pri" data-act="enddemo">Elimina l’esempio e inizia</button></div>
+    <div id="tip" class="bc" hidden><span id="tt"></span><button class="ib" data-act="tipx" aria-label="Nascondi suggerimento"><svg class="i"><use href="#i-x"/></svg></button></div>
+  </div>
+  <aside id="det" role="region" aria-label="Scheda persona" hidden></aside>
   <div id="zc">
     <button class="ib" data-act="zin" title="Zoom avanti" aria-label="Zoom avanti"><svg class="i"><use href="#i-plus"/></svg></button>
     <button class="ib" data-act="zout" title="Zoom indietro" aria-label="Zoom indietro"><svg class="i"><use href="#i-minus"/></svg></button>
@@ -81,5 +93,6 @@
   <button data-act="settings"><svg class="i"><use href="#i-sliders"/></svg>Impostazioni</button>
   <button data-act="more"><svg class="i"><use href="#i-menu"/></svg>Altro</button>
 </nav>
+<div id="live" class="vh" aria-live="polite"></div>
 <dialog id="dlg"></dialog><div id="toast" role="status"></div>
 <script src="script.js"></script></body></html>
