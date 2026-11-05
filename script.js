@@ -380,10 +380,14 @@ const ACT = {
   },
   wipe: () => { if (!confirm('Eliminare DEFINITIVAMENTE tutti gli alberi salvati in questo browser? Questa azione non si può annullare.')) return; clearTimeout(st); try { localStorage.removeItem(KEY) } catch (e) { } location.reload() },
   theme: () => { S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; commit() },
-  demo: () => {
-    snap(); const t = newTree('Esempio · dati dimostrativi'); t.demo = true; S.trees.push(t); S.cur = t.id; const P = (n, c, s, y) => { const p = { ...blank(), id: uid(), nome: n, cognome: c, sesso: s, by: String(y) }; t.people.push(p); return p.id };
-    const a = P('Giuseppe', 'Rossi', 'M', 1920), b = P('Maria', 'Bianchi', 'F', 1924), c = P('Luigi', 'Rossi', 'M', 1948), d = P('Anna', 'Verdi', 'F', 1950), e = P('Paola', 'Rossi', 'F', 1951), f = P('Marco', 'Neri', 'M', 1949), g = P('Elena', 'Gallo', 'F', 1955), h = P('Sara', 'Rossi', 'F', 1975), i = P('Luca', 'Rossi', 'M', 1978), j = P('Giulia', 'Neri', 'F', 1976), k = P('Davide', 'Neri', 'M', 1980);
-    union(a, b); link(a, c); link(b, c); link(a, e); link(b, e); union(c, d, 'ex'); union(c, g); link(c, h); link(d, h); link(c, i, 'adottiva'); link(g, i, 'adottiva'); union(e, f); link(e, j); link(f, j); link(e, k); link(f, k); t.ref = i; sel = null; collapsed.clear(); mode = 'all'; commit(); fitSmart();
+  /* Esempio: legge esempio.json (se il browser lo permette) altrimenti usa la copia incorporata in esempio.js */
+  demo: async () => {
+    let d = null;
+    try { const r = await fetch('esempio.json', { cache: 'no-store' }); if (r.ok) d = await r.json() } catch (e) { }
+    d = d || window.ESEMPIO; if (!d) return toast('File esempio.json non trovato nella cartella dell’app');
+    let im; try { im = parseImport(d) } catch (e) { return toast('Esempio non valido: ' + e.message) }
+    snap(); const t = newTree('Esempio · dati dimostrativi'); Object.assign(t, { people: im.tree.people, rels: im.tree.rels, ref: im.tree.ref, demo: true });
+    S.trees.push(t); S.cur = t.id; sel = null; collapsed.clear(); mode = 'all'; commit(); fitSmart();
   },
   trees: () => {
     modal('Alberi genealogici', `<table>${S.trees.map(t => `<tr><td>${t.id === S.cur ? '● ' : ''}<b>${esc(t.name)}</b>${t.demo ? ' <span class="mu">(esempio)</span>' : ''} <span class="mu">(${t.people.length})</span></td><td align="right"><button data-act="topen" data-t="${t.id}">Apri</button> <button data-act="tren" data-t="${t.id}">Rinomina</button> <button class="dg" data-act="tdel" data-t="${t.id}">Elimina</button></td></tr>`).join('')}</table>`, `<button class="pri" data-act="tnew">Nuovo albero</button>`);
